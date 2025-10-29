@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - AI Project</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🤖 AI Project</h1>
+            <p class="tagline">Ask anything. Local LLM answers with references.</p>
+            <button id="darkToggle" class="btn btn-secondary" style="margin-top:10px" onclick="toggleDarkMode()">Toggle Dark</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="landing" id="landing">
+                <h2>What are you thinking about?</h2>
+                <p class="description">Ask anything. We'll fetch useful info and draft a concise answer with references.</p>
+                <div class="prompt-row">
+                    <input id="userPrompt" type="text" placeholder="e.g., Is creatine safe for endurance athletes?" onkeydown="if(event.key==='Enter'){ask()}" />
+                    <button class="btn btn-primary" onclick="ask()">Ask</button>
+                </div>
+            </section>
+
+            <section id="results" class="results" style="display:none">
+                <div class="results-columns">
+                    <div class="left">
+                        <h3>Prompt</h3>
+                        <div id="promptEcho" class="card"></div>
+                        <h3>References</h3>
+                        <ul id="refList" class="links"></ul>
+                    </div>
+                    <div class="right">
+                        <div class="result-actions">
+                            <button class="btn" onclick="resetUI()">New question</button>
+                        </div>
+                        <h3>Answer</h3>
+                        <div id="answerBox" class="card"></div>
+                        <div id="bulletBox" class="card" style="display:none; margin-top:12px;"></div>
+                        <div id="imageBox" class="image-gallery" style="display:none; margin-top:12px;"></div>
+                    </div>
+                </div>
+            </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AI Project. Powered by intelligent agents.</p>
+        </div>
+    </footer>
+
+    <script>
+        function showResultsLayout(prompt) {
+            const landing = document.getElementById('landing');
+            const results = document.getElementById('results');
+            document.getElementById('promptEcho').textContent = prompt;
+            landing.style.display = 'none';
+            results.style.display = 'block';
+        }
+
+        async function ask() {
+            const prompt = document.getElementById('userPrompt').value.trim();
+            if (!prompt) return;
+            showResultsLayout(prompt);
+            const answerBox = document.getElementById('answerBox');
+            const bulletBox = document.getElementById('bulletBox');
+            const refList = document.getElementById('refList');
+            answerBox.innerHTML = '<div class="spinner"></div> Thinking…';
+            refList.innerHTML = '';
+            bulletBox.style.display = 'none';
+            const imageBox = document.getElementById('imageBox');
+            imageBox.style.display = 'none';
+            imageBox.innerHTML = '';
+            const askBtn = document.querySelector('.prompt-row .btn.btn-primary');
+            if (askBtn) { askBtn.disabled = true; askBtn.textContent = 'Working…'; }
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 30000);
+            try {
+                const resp = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ prompt }),
+                    signal: controller.signal
+                });
+                const data = await resp.json();
+                if (data.status !== 'success') throw new Error('Request failed');
+                answerBox.textContent = data.answer || '';
+                // Bullets
+                const bullets = data.bullets || [];
+                if (bullets.length) {
+                    bulletBox.style.display = 'block';
+                    bulletBox.innerHTML = '<ul class="bullets">' + bullets.map(b => `<li>${b}</li>`).join('') + '</ul>';
+                }
+                // Links
+                (data.links || []).forEach(url => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = url;
+                    li.appendChild(a);
+                    refList.appendChild(li);
+                });
+                // Images
+                const images = data.images || [];
+                if (images.length) {
+                    imageBox.style.display = 'block';
+                    imageBox.innerHTML = images.map(img => 
+                        `<div class="image-item">
+                            <a href="${img.url}" target="_blank" rel="noopener">
+                                <img src="${img.thumbnail}" alt="${img.title}" loading="lazy" />
+                            </a>
+                        </div>`
+                    ).join('');
+                }
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    answerBox.textContent = 'Request timed out. Please try again with a shorter or clearer prompt.';
+                } else {
+                    answerBox.textContent = 'Error: ' + e.message;
+                }
+            }
+            finally {
+                clearTimeout(timer);
+                if (askBtn) { askBtn.disabled = false; askBtn.textContent = 'Ask'; }
+            }
+        }
+
+        function resetUI() {
+            document.getElementById('userPrompt').value = '';
+            document.getElementById('landing').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('answerBox').textContent = '';
+            document.getElementById('bulletBox').style.display = 'none';
+            document.getElementById('imageBox').style.display = 'none';
+            document.getElementById('refList').innerHTML = '';
+            document.getElementById('userPrompt').focus();
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark');
+        }
+
+        // Keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+            // Focus prompt with '/'
+            if (e.key === '/' && document.activeElement.id !== 'userPrompt') {
+                e.preventDefault();
+                const input = document.getElementById('userPrompt');
+                input.focus();
+                input.select();
+            }
+            // Escape to reset to landing view
+            if (e.key === 'Escape') {
+                resetUI();
+            }
+            // Ctrl+Enter to ask
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                ask();
+            }
+        });
+        async function generateLanding() {
+            const prompt = document.getElementById('userPrompt').value.trim();
+            const tone = document.getElementById('tone').value;
+            if (!prompt) { alert('Please enter an idea.'); return; }
+            
+            try {
+                const res = await fetch('/api/page/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ prompt, tone, style: 'clean' })
+                });
+                const data = await res.json();
+                if (data.status !== 'success') throw new Error('Generation failed');
+                
+                // Open a new window and write the HTML result
+                const w = window.open('', '_blank');
+                w.document.open();
+                w.document.write(data.html);
+                w.document.close();
+            } catch (e) {
+                alert('Error generating page: ' + e.message);
+            }
+        }
+        // Agent interaction functions
+        function viewAgent(agentName) {
+            console.log('Viewing agent:', agentName);
+            alert(`${agentName} details will be displayed here.`);
+        }
+
+        async function runSEOAnalysis() {
+            const url = prompt('Enter URL to analyze:');
+            if (!url) return;
+            
+            try {
+                const response = await fetch('/api/seo/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url})
+                });
+                const data = await response.json();
+                alert('SEO Analysis Result: ' + JSON.stringify(data, null, 2));
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function generateContent() {
+            const topic = prompt('Enter content topic:');
+            if (!topic) return;
+            
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({topic, style: 'professional'})
+                });
+                const data = await response.json();
+                alert('Generated Content:\n\n' + data.content);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function checkRevenue() {
+            try {
+                const response = await fetch('/api/monetization/revenue/month');
+                const data = await response.json();
+                alert('Revenue Analysis:\n\n' + JSON.stringify(data.data, null, 2));
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function auditUX() {
+            alert('UX Audit feature coming soon!');
+        }
+
+        async function getSiteHealth() {
+            try {
+                const response = await fetch('/api/oversight/health');
+                const data = await response.json();
+                alert('Site Health Report:\n\n' + JSON.stringify(data.health, null, 2));
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
