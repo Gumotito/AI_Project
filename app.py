@@ -16,7 +16,8 @@ from agents import (
     ContentAgent,
     MonetizationAgent,
     UIUXAgent,
-    OversightAgent
+    OversightAgent,
+    EngagementAgent
 )
 
 # Configure logging
@@ -57,12 +58,14 @@ content_agent = ContentAgent()
 monetization_agent = MonetizationAgent()
 uiux_agent = UIUXAgent()
 oversight_agent = OversightAgent()
+engagement_agent = EngagementAgent()
 
 # Register agents with oversight
 oversight_agent.register_agent("seo", seo_agent)
 oversight_agent.register_agent("content", content_agent)
 oversight_agent.register_agent("monetization", monetization_agent)
 oversight_agent.register_agent("uiux", uiux_agent)
+oversight_agent.register_agent("engagement", engagement_agent)
 
 # Store agents in app state
 app.state.agents = {
@@ -70,7 +73,8 @@ app.state.agents = {
     "content": content_agent,
     "monetization": monetization_agent,
     "uiux": uiux_agent,
-    "oversight": oversight_agent
+    "oversight": oversight_agent,
+    "engagement": engagement_agent
 }
 
 # Include routers
@@ -81,8 +85,18 @@ app.include_router(api_routes.router, prefix="/api")
 @app.on_event("startup")
 async def startup_event():
     """Run on application startup."""
+    import asyncio
     logger.info("AI Project application starting up...")
     logger.info("All agents initialized successfully")
+    # Best-effort LLM warmup to reduce first-request latency
+    async def _warmup():
+        try:
+            logger.info("Warming up LLM (best-effort)…")
+            _ = await content_agent.llm.generate("Reply with: ready", timeout=8.0)
+            logger.info("LLM warmup complete")
+        except Exception as e:
+            logger.warning(f"LLM warmup skipped: {e}")
+    asyncio.create_task(_warmup())
 
 
 @app.on_event("shutdown")

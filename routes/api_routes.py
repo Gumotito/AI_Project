@@ -36,6 +36,11 @@ class PageGenerateRequest(BaseModel):
 class AskRequest(BaseModel):
     prompt: str
 
+class SuggestRequest(BaseModel):
+    prompt: str
+    answer: str | None = None
+    previous: str | None = None
+
 
 class InteractionEvent(BaseModel):
     event_type: str  # 'click', 'scroll', 'time', 'input'
@@ -252,7 +257,15 @@ async def ask(request: Request, data: AskRequest):
     agents = request.app.state.agents
     content_agent = agents["content"]
     oversight_agent = agents["oversight"]
+    engagement_agent = agents.get("engagement")
     result = await content_agent.answer_prompt(data.prompt)
+    # Follow-up suggestion (best-effort)
+    followup = None
+    if engagement_agent:
+        try:
+            followup = await engagement_agent.suggest_followup(data.prompt, result.get("answer"))
+        except Exception:
+            followup = None
     # Log interaction for local learning
     await oversight_agent.log_qa_interaction(
         prompt=data.prompt,
@@ -261,7 +274,20 @@ async def ask(request: Request, data: AskRequest):
         images=result.get("images", []),
         videos=result.get("videos", [])
     )
-    return {"status": "success", **result}
+    return {"status": "success", **result, "followup": followup}
+
+@router.post("/ask/suggest")
+async def suggest_followup(request: Request, data: SuggestRequest):
+    """Generate a follow-up prompt suggestion to drive engagement."""
+    agents = request.app.state.agents
+    engagement_agent = agents.get("engagement")
+    if not engagement_agent:
+        raise HTTPException(status_code=503, detail="Engagement agent not available")
+    try:
+        suggestion = await engagement_agent.suggest_followup(data.prompt, data.answer, data.previous)
+        return {"status": "success", "followup": suggestion}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/uiux/track")
 async def track_ui_interaction(request: Request, event: InteractionEvent):

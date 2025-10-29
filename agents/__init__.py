@@ -8,11 +8,13 @@ from .agent_content import ContentAgent
 from .agent_monetization import MonetizationAgent
 from .agent_uiux import UIUXAgent
 from .agent_oversight import OversightAgent
+from .agent_engagement import EngagementAgent
 
 __all__ = [
     'SEOAgent',
     'ContentAgent',
     'MonetizationAgent',
     'UIUXAgent',
-    'OversightAgent'
+    'OversightAgent',
+    'EngagementAgent'
 ]

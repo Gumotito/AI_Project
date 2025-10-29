@@ -10,38 +10,51 @@
     <header>
         <div class="container">
             <h1>🤖 AI Project</h1>
-            <p class="tagline">Ask anything. Local LLM answers with references.</p>
+            <p class="tagline">Ask anything.</p>
             <button id="darkToggle" class="btn btn-secondary" style="margin-top:10px" onclick="toggleDarkMode()">Toggle Dark</button>
         </div>
     </header>
 
     <main class="container">
         <section class="landing" id="landing">
+            <div id="languageCloud" aria-hidden="true"></div>
+            <div class="landing-center">
                 <h2>What are you thinking about?</h2>
-                <p class="description">Ask anything. We'll fetch useful info and draft a concise answer with references.</p>
                 <div class="prompt-row">
                     <input id="userPrompt" type="text" placeholder="e.g., Is creatine safe for endurance athletes?" onkeydown="if(event.key==='Enter'){ask()}" />
                     <button class="btn btn-primary" onclick="ask()">Ask</button>
                 </div>
-            </section>
+            </div>
+        </section>
 
             <section id="results" class="results" style="display:none">
                 <div class="results-columns">
                     <div class="left">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                            <h3 style="margin: 0;">Prompt</h3>
+                        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 1rem; gap: 8px;">
                             <button class="btn" onclick="resetUI()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">New question</button>
                         </div>
                         <div id="promptEcho" class="card"></div>
-                        <h3 style="margin-top: 1.5rem;">References</h3>
-                        <ul id="refList" class="links"></ul>
+                        <details id="refBox" class="ref-box card" style="display:none; margin-top: 1rem;">
+                            <summary id="refSummary">🔗 References (0) — external links</summary>
+                            <ul id="refList" class="links" style="margin-top: 8px;"></ul>
+                        </details>
                         <div id="videoBox" class="video-gallery" style="display:none; margin-top:1rem;"></div>
-                        <div id="imageBox" class="image-gallery" style="display:none; margin-top:1rem;"></div>
                     </div>
                     <div class="right">
-                        <h3>Answer</h3>
+                        <h3>Is this it?</h3>
                         <div id="answerBox" class="card"></div>
                         <div id="bulletBox" class="card" style="display:none; margin-top:10px;"></div>
+                        <div id="imageBox" class="image-gallery" style="display:none; margin-top:1rem;"></div>
+                        <div id="followupSection" class="card followup" style="display:none; margin-top:10px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                                <h4 style="margin:0; font-size:1rem;">Suggested follow-up</h4>
+                                <div class="result-actions" style="margin:0;">
+                                    <button class="btn btn-secondary" id="askFollowupBtn" type="button">Ask this</button>
+                                    <button class="btn" id="anotherFollowupBtn" type="button">Another</button>
+                                </div>
+                            </div>
+                            <p id="followupText" style="margin:8px 0 0 0;"></p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -63,6 +76,138 @@
     </footer>
 
     <script>
+        // Multilingual chaotic cloud (non-overlapping)
+        const PHRASES = [
+            // Europe (West/North)
+            'What are you thinking about?',            // English
+            '¿En qué estás pensando?',               // Spanish
+            'À quoi penses-tu ?',                    // French
+            'Woran denkst du?',                      // German
+            'A cosa stai pensando?',                 // Italian
+            'O que você está pensando?',             // Portuguese (BR)
+            'Waar denk je aan?',                     // Dutch
+            'Vad tänker du på?',                     // Swedish
+            'Hva tenker du på?',                     // Norwegian
+            'Hvad tænker du på?',                    // Danish
+            'Mitä ajattelet?',                       // Finnish
+            'Um hvað ertu að hugsa?',                // Icelandic
+
+            // Europe (Central/East/Balkans)
+            'Na co myslíš?',                         // Czech
+            'Na čo myslíš?',                         // Slovak
+            'Mire gondolsz?',                        // Hungarian
+            'O čem razmišljaš?',                     // Slovenian
+            'O čemu razmišljaš?',                    // Croatian
+            'О чему размишљаш?',                     // Serbian (Cyrillic)
+            'За што размислуваш?',                   // Macedonian
+            'За какво мислиш?',                      // Bulgarian
+            'O czym myślisz?',                       // Polish
+            'La ce te gândești?',                    // Romanian
+            'Περί τίνος σκέφτεσαι;',                 // Greek (alt)
+
+            // Slavic (East)
+            'О чем ты думаешь?',                     // Russian
+            'Про що ти думаєш?',                     // Ukrainian
+            'Пра што ты думаеш?',                    // Belarusian
+
+            // Middle East / Central Asia
+            'بماذا تفكر؟',                          // Arabic
+            'به چه فکر می‌کنی؟',                      // Persian (Farsi)
+            'तपाईं के सोच्दै हुनुहुन्छ?',              // Nepali
+            'Ինչ ես մտածում?',                      // Armenian
+            'რას ფიქრობ?',                           // Georgian
+
+            // South Asia
+            'आप क्या सोच रहे हैं?',                   // Hindi
+            'আপনি কী ভাবছেন?',                        // Bengali
+            'آپ کیا سوچ رہے ہیں؟',                    // Urdu
+
+            // East / Southeast Asia
+            '你在想什么？',                            // Chinese (Simplified)
+            '何を考えていますか？',                    // Japanese
+            '무슨 생각을 하고 있어요?',               // Korean
+            'Bạn đang nghĩ gì?',                      // Vietnamese
+            'คุณกำลังคิดอะไรอยู่?',                   // Thai
+            'Apa yang kamu pikirkan?',               // Indonesian
+            'Apa yang anda fikirkan?',               // Malay
+            'អ្នកកំពុងគិតអំពីអ្វី?',                    // Khmer
+            'ທ່ານກຳລັງຄິດຫຍັງ?',                     // Lao
+
+            // Oceania
+            'He aha tāu e whakaaro nei?',            // Māori
+
+            // Africa
+            'Unawaza nini?',                         // Swahili
+            'Waaroor dink jy?',                      // Afrikaans
+            'Ucabangani?',                           // Zulu
+            'Kí ni o ń rò?',                         // Yoruba
+            'Kedu ihe ị na-eche?',                   // Igbo
+            'Me kake tunani?',                       // Hausa
+            'Maxaad ka fekeraysaa?',                 // Somali
+            'Inona no eritreretinao?',               // Malagasy
+
+            // Others
+            'X’qed taħseb?',                         // Maltese
+            'Pri kio vi pensas?',                    // Esperanto
+            'Quid cogitas?'                          // Latin
+        ];
+        const COLORS = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#84cc16','#f97316','#06b6d4'];
+
+        function layoutCloud() {
+            const container = document.getElementById('languageCloud');
+            if (!container) return;
+            container.innerHTML = '';
+            const rect = container.getBoundingClientRect();
+            const placed = [];
+            const maxItems = Math.min(PHRASES.length, 40); // doubled density
+            const pad = 6;
+
+            // Shuffle phrases to ensure random, unique selection per render
+            const shuffled = PHRASES
+                .map((p) => ({ p, r: Math.random() }))
+                .sort((a, b) => a.r - b.r)
+                .map(({ p }) => p);
+
+            function overlaps(a,b){
+                return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+            }
+
+            // Create elements and position randomly without overlap
+            for (let i=0;i<maxItems;i++){
+                const span = document.createElement('span');
+                span.className = 'cloud-word';
+                span.textContent = shuffled[i];
+                span.style.color = COLORS[Math.floor(Math.random()*COLORS.length)];
+                span.style.transform = `rotate(${(Math.random()*10-5).toFixed(1)}deg)`;
+                container.appendChild(span);
+
+                // Try several random positions
+                let placedOk = false;
+                for (let tries=0; tries<200 && !placedOk; tries++){
+                    const x = pad + Math.random()*(rect.width - span.offsetWidth - pad*2);
+                    const y = pad + Math.random()*(rect.height - span.offsetHeight - pad*2);
+                    span.style.left = x + 'px';
+                    span.style.top = y + 'px';
+                    const box = {left:x, top:y, right:x+span.offsetWidth, bottom:y+span.offsetHeight};
+                    placedOk = placed.every(p => !overlaps(box, p));
+                    if (placedOk) placed.push(box);
+                }
+                if (!placedOk){
+                    // If couldn't place without overlap, remove it
+                    span.remove();
+                }
+            }
+        }
+
+        window.addEventListener('load', () => {
+            layoutCloud();
+        });
+        window.addEventListener('resize', () => {
+            // throttle with timeout
+            clearTimeout(window.__cloudTimer);
+            window.__cloudTimer = setTimeout(layoutCloud, 150);
+        });
+
         function showResultsLayout(prompt) {
             const landing = document.getElementById('landing');
             const results = document.getElementById('results');
@@ -78,9 +223,15 @@
             const answerBox = document.getElementById('answerBox');
             const bulletBox = document.getElementById('bulletBox');
             const refList = document.getElementById('refList');
+            const refBox = document.getElementById('refBox');
+            const refSummary = document.getElementById('refSummary');
             answerBox.innerHTML = '<div class="spinner"></div> Thinking…';
             refList.innerHTML = '';
+            if (refBox) refBox.style.display = 'none';
             bulletBox.style.display = 'none';
+            // Hide follow-up while loading
+            const followupSection = document.getElementById('followupSection');
+            followupSection.style.display = 'none';
             const imageBox = document.getElementById('imageBox');
             imageBox.style.display = 'none';
             imageBox.innerHTML = '';
@@ -90,7 +241,7 @@
             const askBtn = document.querySelector('.prompt-row .btn.btn-primary');
             if (askBtn) { askBtn.disabled = true; askBtn.textContent = 'Working…'; }
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 30000);
+            const timer = setTimeout(() => controller.abort(), 45000);
             try {
                 const resp = await fetch('/api/ask', {
                     method: 'POST',
@@ -101,20 +252,28 @@
                 const data = await resp.json();
                 if (data.status !== 'success') throw new Error('Request failed');
                 answerBox.textContent = data.answer || '';
+                // Save last context for re-suggestion
+                window.__lastPrompt = prompt;
+                window.__lastAnswer = data.answer || '';
                 // Bullets
                 const bullets = data.bullets || [];
                 if (bullets.length) {
                     bulletBox.style.display = 'block';
                     bulletBox.innerHTML = '<ul class="bullets">' + bullets.map(b => `<li>${b}</li>`).join('') + '</ul>';
                 }
-                // Links
-                (data.links || []).forEach(url => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = url;
-                    li.appendChild(a);
-                    refList.appendChild(li);
-                });
+                // Links (collapsible, smaller box)
+                const links = data.links || [];
+                if (links.length) {
+                    links.forEach(url => {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = url;
+                        li.appendChild(a);
+                        refList.appendChild(li);
+                    });
+                    if (refSummary) refSummary.textContent = `🔗 References (${links.length}) — external links`;
+                    if (refBox) refBox.style.display = 'block';
+                }
                 // YouTube Videos
                 const videos = data.videos || [];
                 if (videos.length) {
@@ -145,6 +304,12 @@
                         </button>`
                     ).join('');
                 }
+                // Follow-up suggestion
+                const follow = data.followup;
+                if (follow && typeof follow === 'string' && follow.trim()) {
+                    document.getElementById('followupText').textContent = follow.trim();
+                    followupSection.style.display = 'block';
+                }
             } catch (e) {
                 if (e.name === 'AbortError') {
                     answerBox.textContent = 'Request timed out. Please try again with a shorter or clearer prompt.';
@@ -156,6 +321,55 @@
                 clearTimeout(timer);
                 if (askBtn) { askBtn.disabled = false; askBtn.textContent = 'Ask'; }
             }
+        }
+
+        // Follow-up handlers
+        const askFollowupBtn = document.getElementById('askFollowupBtn');
+        if (askFollowupBtn) {
+            askFollowupBtn.addEventListener('click', () => {
+                const f = document.getElementById('followupText').textContent.trim();
+                if (!f) return;
+                const input = document.getElementById('userPrompt');
+                input.value = f;
+                ask();
+            });
+        }
+        const anotherFollowupBtn = document.getElementById('anotherFollowupBtn');
+        if (anotherFollowupBtn) {
+            anotherFollowupBtn.addEventListener('click', async () => {
+                const btn = anotherFollowupBtn;
+                const original = btn.textContent;
+                btn.textContent = 'Thinking…';
+                btn.disabled = true;
+                const current = (document.getElementById('followupText').textContent || '').trim();
+                try {
+                    const tryFetch = async (prev) => {
+                        const res = await fetch('/api/ask/suggest', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                prompt: window.__lastPrompt || '',
+                                answer: window.__lastAnswer || '',
+                                previous: prev || ''
+                            })
+                        });
+                        return res.json();
+                    };
+                    let data = await tryFetch(current);
+                    // If suggestion didn't change, retry once without previous (or with same prev) to encourage diversity
+                    if (data && data.status === 'success' && typeof data.followup === 'string' && data.followup.trim() === current) {
+                        data = await tryFetch(data.followup.trim());
+                    }
+                    if (data.status === 'success' && data.followup) {
+                        document.getElementById('followupText').textContent = data.followup;
+                    }
+                } catch (e) {
+                    console.warn('Follow-up regenerate failed', e);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = original;
+                }
+            });
         }
 
         function resetUI() {
