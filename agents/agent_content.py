@@ -90,7 +90,7 @@ class ContentAgent:
             f"Useful references (URLs may be relevant):\n" + "\n".join(links)
         )
         try:
-            answer_text = await self.llm.generate(llm_prompt, timeout=20.0)
+            answer_text = await self.llm.generate(llm_prompt, timeout=30.0)
         except Exception as e:
             logger.error(f"LLM error: {e}")
             answer_text = "I could not generate an answer right now. Please try again."
