@@ -174,7 +174,7 @@ class OversightAgent:
             "expected_outcomes": []
         }
 
-    async def log_qa_interaction(self, prompt: str, answer: str, links: List[str]) -> Dict[str, Any]:
+    async def log_qa_interaction(self, prompt: str, answer: str, links: List[str], images: List[Dict] = None, videos: List[Dict] = None) -> Dict[str, Any]:
         """
         Log a Q&A interaction for future retrieval/analysis.
         Appends JSON lines to logs/qa_history.jsonl.
@@ -186,6 +186,8 @@ class OversightAgent:
                 "prompt": prompt,
                 "answer": answer,
                 "links": links,
+                "images": images or [],
+                "videos": videos or [],
             }
             import os, json
             os.makedirs("logs", exist_ok=True)

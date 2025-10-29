@@ -37,6 +37,12 @@ class AskRequest(BaseModel):
     prompt: str
 
 
+class InteractionEvent(BaseModel):
+    event_type: str  # 'click', 'scroll', 'time', 'input'
+    element_id: str | None = None
+    metadata: Dict[str, Any] | None = None
+
+
 # Agent Status Endpoints
 @router.get("/agents", response_model=List[AgentStatusResponse])
 async def list_agents(request: Request):
@@ -251,6 +257,26 @@ async def ask(request: Request, data: AskRequest):
     await oversight_agent.log_qa_interaction(
         prompt=data.prompt,
         answer=result.get("answer", ""),
-        links=result.get("links", [])
+        links=result.get("links", []),
+        images=result.get("images", []),
+        videos=result.get("videos", [])
     )
     return {"status": "success", **result}
+
+@router.post("/uiux/track")
+async def track_ui_interaction(request: Request, event: InteractionEvent):
+    """Track user interface interaction for analytics and optimization."""
+    agents = request.app.state.agents
+    uiux_agent = agents["uiux"]
+    result = await uiux_agent.track_interaction(event.dict())
+    return result
+
+
+@router.get("/uiux/recommendations")
+async def get_ui_recommendations(request: Request):
+    """Get UI/UX optimization recommendations based on collected data."""
+    agents = request.app.state.agents
+    uiux_agent = agents["uiux"]
+    recommendations = await uiux_agent.get_optimization_recommendations()
+    return {"recommendations": recommendations, "count": len(recommendations)}
+

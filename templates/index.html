@@ -28,23 +28,33 @@
             <section id="results" class="results" style="display:none">
                 <div class="results-columns">
                     <div class="left">
-                        <h3>Prompt</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0;">Prompt</h3>
+                            <button class="btn" onclick="resetUI()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">New question</button>
+                        </div>
                         <div id="promptEcho" class="card"></div>
-                        <h3>References</h3>
+                        <h3 style="margin-top: 1.5rem;">References</h3>
                         <ul id="refList" class="links"></ul>
+                        <div id="videoBox" class="video-gallery" style="display:none; margin-top:1rem;"></div>
+                        <div id="imageBox" class="image-gallery" style="display:none; margin-top:1rem;"></div>
                     </div>
                     <div class="right">
-                        <div class="result-actions">
-                            <button class="btn" onclick="resetUI()">New question</button>
-                        </div>
                         <h3>Answer</h3>
                         <div id="answerBox" class="card"></div>
-                        <div id="bulletBox" class="card" style="display:none; margin-top:12px;"></div>
-                        <div id="imageBox" class="image-gallery" style="display:none; margin-top:12px;"></div>
+                        <div id="bulletBox" class="card" style="display:none; margin-top:10px;"></div>
                     </div>
                 </div>
             </section>
     </main>
+
+    <!-- Lightbox for images -->
+    <div id="lightbox" class="lightbox-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Image preview">
+        <div class="lightbox-content">
+            <button class="lightbox-close" aria-label="Close image" onclick="hideLightbox()">&times;</button>
+            <img id="lightboxImage" alt="Preview" />
+            <p id="lightboxCaption" class="lightbox-caption"></p>
+        </div>
+    </div>
 
     <footer>
         <div class="container">
@@ -74,6 +84,9 @@
             const imageBox = document.getElementById('imageBox');
             imageBox.style.display = 'none';
             imageBox.innerHTML = '';
+            const videoBox = document.getElementById('videoBox');
+            videoBox.style.display = 'none';
+            videoBox.innerHTML = '';
             const askBtn = document.querySelector('.prompt-row .btn.btn-primary');
             if (askBtn) { askBtn.disabled = true; askBtn.textContent = 'Working…'; }
             const controller = new AbortController();
@@ -102,16 +115,34 @@
                     li.appendChild(a);
                     refList.appendChild(li);
                 });
-                // Images
+                // YouTube Videos
+                const videos = data.videos || [];
+                if (videos.length) {
+                    videoBox.style.display = 'block';
+                    videoBox.innerHTML = videos.map(video => 
+                        `<div class="video-item">
+                            <iframe 
+                                width="100%" 
+                                height="315" 
+                                src="https://www.youtube.com/embed/${video.video_id}" 
+                                title="${video.title}" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                allowfullscreen
+                                loading="lazy">
+                            </iframe>
+                            <p class="video-title">${video.title}</p>
+                        </div>`
+                    ).join('');
+                }
+                // Images (click to open lightbox)
                 const images = data.images || [];
                 if (images.length) {
                     imageBox.style.display = 'block';
                     imageBox.innerHTML = images.map(img => 
-                        `<div class="image-item">
-                            <a href="${img.url}" target="_blank" rel="noopener">
-                                <img src="${img.thumbnail}" alt="${img.title}" loading="lazy" />
-                            </a>
-                        </div>`
+                        `<button class="image-item" type="button" data-url="${img.url}" data-title="${img.title.replace(/"/g,'&quot;')}">
+                            <img src="${img.thumbnail}" alt="${img.title}" loading="lazy" />
+                        </button>`
                     ).join('');
                 }
             } catch (e) {
@@ -133,9 +164,11 @@
             document.getElementById('results').style.display = 'none';
             document.getElementById('answerBox').textContent = '';
             document.getElementById('bulletBox').style.display = 'none';
+            document.getElementById('videoBox').style.display = 'none';
             document.getElementById('imageBox').style.display = 'none';
             document.getElementById('refList').innerHTML = '';
             document.getElementById('userPrompt').focus();
+            hideLightbox();
         }
 
         function toggleDarkMode() {
@@ -153,13 +186,66 @@
             }
             // Escape to reset to landing view
             if (e.key === 'Escape') {
-                resetUI();
+                // If lightbox open, close it, otherwise reset UI
+                const lb = document.getElementById('lightbox');
+                if (lb && lb.style.display !== 'none') {
+                    hideLightbox();
+                } else {
+                    resetUI();
+                }
             }
             // Ctrl+Enter to ask
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                 ask();
             }
         });
+
+        // Lightbox logic
+        function showLightbox(url, title='') {
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightboxImage');
+            const cap = document.getElementById('lightboxCaption');
+            img.src = url;
+            img.alt = title || 'Preview';
+            cap.textContent = title || '';
+            lb.style.display = 'flex';
+            document.body.classList.add('no-scroll');
+            // focus close for accessibility
+            const closeBtn = lb.querySelector('.lightbox-close');
+            if (closeBtn) closeBtn.focus();
+        }
+
+        function hideLightbox() {
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightboxImage');
+            const cap = document.getElementById('lightboxCaption');
+            lb.style.display = 'none';
+            document.body.classList.remove('no-scroll');
+            img.src = '';
+            cap.textContent = '';
+        }
+
+        // Delegate clicks within image gallery to open lightbox
+        const imgGallery = document.getElementById('imageBox');
+        if (imgGallery) {
+            imgGallery.addEventListener('click', (e) => {
+                const item = e.target.closest('.image-item');
+                if (!item) return;
+                const url = item.getAttribute('data-url');
+                const title = item.getAttribute('data-title') || '';
+                if (url) showLightbox(url, title);
+            });
+        }
+
+        // Close lightbox when clicking outside content
+        const lbOverlay = document.getElementById('lightbox');
+        if (lbOverlay) {
+            lbOverlay.addEventListener('click', (e) => {
+                if (e.target.id === 'lightbox' || e.target.classList.contains('lightbox-overlay')) {
+                    hideLightbox();
+                }
+            });
+        }
         async function generateLanding() {
             const prompt = document.getElementById('userPrompt').value.trim();
             const tone = document.getElementById('tone').value;
@@ -242,6 +328,65 @@
                 const response = await fetch('/api/oversight/health');
                 const data = await response.json();
                 alert('Site Health Report:\n\n' + JSON.stringify(data.health, null, 2));
+
+        // UI/UX Analytics Tracking
+        async function trackInteraction(eventType, elementId, metadata = {}) {
+            try {
+                await fetch('/api/uiux/track', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event_type: eventType,
+                        element_id: elementId,
+                        metadata: metadata
+                    })
+                });
+            } catch (e) {
+                console.warn('Failed to track interaction:', e);
+            }
+        }
+
+        // Track page load time
+        window.addEventListener('load', () => {
+            const loadTime = performance.now();
+            trackInteraction('time', 'page_load', { load_time_ms: loadTime });
+        });
+
+        // Track scroll depth
+        let maxScrollDepth = 0;
+        window.addEventListener('scroll', () => {
+            const scrollPercent = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+            if (scrollPercent > maxScrollDepth) {
+                maxScrollDepth = scrollPercent;
+                trackInteraction('scroll', 'page', { scroll_depth: scrollPercent });
+            }
+        });
+
+        // Track button clicks
+        document.addEventListener('click', (e) => {
+            const target = e.target.closest('button, .btn');
+            if (target) {
+                const btnText = target.textContent.trim();
+                const btnId = target.id || btnText.toLowerCase().replace(/\s+/g, '_');
+                trackInteraction('click', btnId, { text: btnText });
+            }
+        });
+
+        // Track input focus and queries
+        const promptInput = document.getElementById('userPrompt');
+        if (promptInput) {
+            promptInput.addEventListener('focus', () => {
+                trackInteraction('input', 'prompt_focus', {});
+            });
+            
+            // Track search queries when submitted
+            promptInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && promptInput.value.trim()) {
+                    trackInteraction('input', 'search_query', { query: promptInput.value.trim() });
+                }
+            });
+        }
+
             } catch (error) {
                 alert('Error: ' + error.message);
             }

@@ -21,9 +21,10 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     
     # LangSmith Configuration
-    LANGCHAIN_TRACING_V2: str = "true"
+    # Set LANGCHAIN_TRACING_V2=true in .env to enable tracing
+    LANGCHAIN_TRACING_V2: str = os.getenv("LANGCHAIN_TRACING_V2", "false")
     LANGCHAIN_API_KEY: str = os.getenv("LANGCHAIN_API_KEY", "")
-    LANGCHAIN_PROJECT: str = "AI_Project"
+    LANGCHAIN_PROJECT: str = os.getenv("LANGCHAIN_PROJECT", "default")
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
     
     # Ollama Configuration

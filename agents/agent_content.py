@@ -121,11 +121,25 @@ class ContentAgent:
         except Exception as e:
             logger.error(f"Image search error: {e}")
 
+        # Search for relevant YouTube videos with timeout
+        videos = []
+        try:
+            from services.agent_tools import youtube_search
+            videos = await asyncio.wait_for(
+                asyncio.to_thread(youtube_search, prompt, 3),
+                timeout=5.0
+            )
+        except asyncio.TimeoutError:
+            logger.warning("YouTube search timed out")
+        except Exception as e:
+            logger.error(f"YouTube search error: {e}")
+
         return {
             "answer": answer_clean if answer_clean else answer_text,
             "bullets": bullets,
             "links": links,
-            "images": images
+            "images": images,
+            "videos": videos
         }
     
     async def improve_content(self, content: str, criteria: List[str]) -> str:

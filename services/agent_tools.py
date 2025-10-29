@@ -77,6 +77,55 @@ def image_search(query: str, max_results: int = 6) -> List[Dict[str, str]]:
         return []
 
 
+def youtube_search(query: str, max_results: int = 3) -> List[Dict[str, str]]:
+    """
+    Search for popular YouTube videos using DuckDuckGo.
+    Returns the most viewed/highest rated videos relevant to the query.
+    
+    Args:
+        query: Search query
+        max_results: Maximum number of videos to return (default 3)
+        
+    Returns:
+        List of video dictionaries with 'video_id', 'title', and 'url' keys
+    """
+    try:
+        # Search for more results to filter and pick the best ones
+        search_count = min(max_results * 2, 10)
+        with DDGS() as ddgs:
+            # DuckDuckGo's video search already prioritizes popular/relevant content
+            results = list(ddgs.videos(query, max_results=search_count))
+            
+        if not results:
+            return []
+        
+        videos = []
+        for result in results:
+            url = result.get('content', '')
+            # Extract YouTube video ID from URL
+            video_id = None
+            if 'youtube.com/watch?v=' in url:
+                video_id = url.split('watch?v=')[1].split('&')[0]
+            elif 'youtu.be/' in url:
+                video_id = url.split('youtu.be/')[1].split('?')[0]
+            
+            if video_id:
+                videos.append({
+                    'video_id': video_id,
+                    'title': result.get('title', 'YouTube Video'),
+                    'url': url
+                })
+            
+            # Stop once we have enough YouTube videos
+            if len(videos) >= max_results:
+                break
+        
+        return videos[:max_results]
+    except Exception as e:
+        logger.error(f"Error in YouTube search: {e}")
+        return []
+
+
 def fetch_webpage_content(url: str, max_length: int = 5000) -> str:
     """
     Fetch and extract main content from a webpage.
