@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     AGENT_TIMEOUT: int = 30  # seconds
     MAX_CONCURRENT_AGENTS: int = 5
     
+    # Guardrails Configuration
+    GUARDRAILS_ENABLED: bool = True
+    GUARDRAILS_MAX_LENGTH: int = 5000
+    GUARDRAILS_MIN_LENGTH: int = 1
+    GUARDRAILS_CONTENT_FILTER: bool = True
+    GUARDRAILS_PII_DETECTION: bool = True
+    GUARDRAILS_RATE_LIMITING: bool = True
+    GUARDRAILS_RATE_LIMIT_REQUESTS: int = 100  # requests per window
+    GUARDRAILS_RATE_LIMIT_WINDOW: int = 60  # seconds
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

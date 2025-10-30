@@ -9,6 +9,7 @@ import logging
 from typing import Dict, List, Any
 from services.llm_service import get_llm_service
 from services.agent_tools import web_search, image_search
+from services.guardrails import get_guardrails, GuardrailViolation
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class ContentAgent:
     def __init__(self):
         self.name = "Content Agent"
         self.llm = get_llm_service()
+        self.guardrails = get_guardrails()
         logger.info(f"{self.name} initialized")
     
     async def generate_content(self, topic: str, style: str = "professional") -> Dict[str, Any]:
@@ -64,6 +66,21 @@ class ContentAgent:
         """
         logger.info("Answering prompt with content agent")
         
+        # Validate input
+        is_valid, error = self.guardrails.validate_input(prompt)
+        if not is_valid:
+            logger.warning(f"Invalid prompt: {error}")
+            return {
+                "answer": f"I cannot process this request: {error}",
+                "bullets": [],
+                "links": [],
+                "images": [],
+                "videos": []
+            }
+        
+        # Sanitize prompt
+        prompt = self.guardrails.sanitize_prompt(prompt)
+        
         # Get a few links with timeout to prevent hanging
         try:
             links_text = await asyncio.wait_for(
@@ -91,6 +108,12 @@ class ContentAgent:
         )
         try:
             answer_text = await self.llm.generate(llm_prompt, timeout=30.0)
+            # Validate output
+            try:
+                answer_text = self.guardrails.validate_output(answer_text, self.name)
+            except GuardrailViolation as gv:
+                logger.error(f"Guardrail violation in answer: {gv.message}")
+                answer_text = "I apologize, but I cannot provide that response. Please try rephrasing your question."
         except Exception as e:
             logger.error(f"LLM error: {e}")
             answer_text = "I could not generate an answer right now. Please try again."

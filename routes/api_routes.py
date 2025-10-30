@@ -6,8 +6,10 @@ Handles all API endpoints for agent interactions.
 from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+from services.guardrails import get_guardrails
 
 router = APIRouter()
+guardrails = get_guardrails()
 
 
 # Request/Response Models
@@ -67,6 +69,11 @@ async def list_agents(request: Request):
 @router.post("/seo/analyze")
 async def analyze_seo(request: Request, data: SEOAnalysisRequest):
     """Analyze SEO for a given URL."""
+    # Validate URL
+    is_valid, error = guardrails.validate_url(data.url)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error)
+    
     seo_agent = request.app.state.agents["seo"]
     result = await seo_agent.analyze_seo(data.url)
     return {"status": "success", "data": result}
@@ -254,6 +261,11 @@ async def generate_page(request: Request, data: PageGenerateRequest):
 @router.post("/ask")
 async def ask(request: Request, data: AskRequest):
     """Answer a general question and return summary with references."""
+    # Validate input at API level
+    is_valid, error = guardrails.validate_input(data.prompt, user_id=request.client.host if request.client else None)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error)
+    
     agents = request.app.state.agents
     content_agent = agents["content"]
     oversight_agent = agents["oversight"]
@@ -279,6 +291,12 @@ async def ask(request: Request, data: AskRequest):
 @router.post("/ask/suggest")
 async def suggest_followup(request: Request, data: SuggestRequest):
     """Generate a follow-up prompt suggestion to drive engagement."""
+    # Validate prompt input
+    if data.prompt:
+        is_valid, error = guardrails.validate_input(data.prompt)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error)
+    
     agents = request.app.state.agents
     engagement_agent = agents.get("engagement")
     if not engagement_agent:

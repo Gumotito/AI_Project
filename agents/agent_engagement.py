@@ -6,6 +6,7 @@ Suggests follow-up prompts to deepen user engagement based on the initial prompt
 import logging
 from typing import Optional
 from services.llm_service import get_llm_service
+from services.guardrails import get_guardrails, GuardrailViolation
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class EngagementAgent:
     def __init__(self):
         self.name = "Engagement Agent"
         self.llm = get_llm_service()
+        self.guardrails = get_guardrails()
         logger.info(f"{self.name} initialized")
 
     async def suggest_followup(self, prompt: str, answer: Optional[str] = None, prev: Optional[str] = None) -> str:
@@ -54,6 +56,20 @@ class EngagementAgent:
             # Ensure it ends with a question mark for clarity
             if not suggestion.endswith("?"):
                 suggestion = suggestion.rstrip(".!") + "?"
+            
+            # Validate follow-up
+            is_valid, error = self.guardrails.validate_followup(suggestion)
+            if not is_valid:
+                logger.warning(f"Invalid follow-up generated: {error}")
+                suggestion = f"What else would you like to know about {prompt[:50]}?"
+            
+            # Check for harmful content
+            try:
+                suggestion = self.guardrails.validate_output(suggestion, self.name)
+            except GuardrailViolation:
+                logger.error("Harmful follow-up generated, using safe fallback")
+                suggestion = "What would you like to explore next?"
+            
             return suggestion
         except Exception as e:
             logger.error(f"Follow-up suggestion failed: {e}")

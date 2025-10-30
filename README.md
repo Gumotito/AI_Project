@@ -93,42 +93,170 @@ Each agent is modular and can be extended independently. To add functionality:
 
 Run tests with pytest:
 ```powershell
+# Run all tests
 pytest
+
+# Run with coverage
+pytest --cov=. --cov-report=html
+
+# Run specific test file
+pytest tests/test_agents.py -v
 ```
+
+**Test Coverage**: Unit tests for agents, API integration tests, and guardrails validation.
 
 ## API Endpoints
 
-- `GET /` - Main dashboard
+### Q&A Interface
+- `POST /api/ask` - Ask a question, get AI answer with sources
+- `POST /api/ask/suggest` - Get follow-up question suggestions
+
+### Agent Management
 - `GET /api/agents` - List all agents and their status
-- `POST /api/seo/analyze` - Trigger SEO analysis
+- `GET /health` - System health check
+- `GET /ready` - Readiness probe
+
+### SEO Operations
+- `POST /api/seo/analyze` - Analyze page SEO
+- `POST /api/seo/keywords` - Generate keywords
+- `GET /api/seo/recommendations` - Get SEO recommendations
+
+### Content Operations
 - `POST /api/content/generate` - Generate content
-- `POST /api/monetization/analyze` - Analyze revenue
-- `POST /api/uiux/audit` - Run UX audit
-- `GET /api/oversight/health` - Get overall site health
+- `POST /api/content/analyze` - Analyze content quality
+- `GET /api/content/topics/{category}` - Get topic suggestions
+
+### Monetization
+- `GET /api/monetization/revenue/{timeframe}` - Revenue analysis
+- `GET /api/monetization/strategies` - Get monetization strategies
+- `POST /api/monetization/ad-placement` - Optimize ad placement
+
+### UI/UX Operations
+- `POST /api/uiux/analyze-flow` - Analyze user flow
+- `POST /api/uiux/accessibility` - Check accessibility
+- `GET /api/uiux/design-suggestions` - Get design recommendations
+- `POST /api/uiux/performance` - Performance audit
+
+### Oversight
+- `GET /api/oversight/health` - Overall system health
+- `GET /api/oversight/report/{type}` - Generate reports
+- `GET /api/oversight/priorities` - Get priority tasks
+- `POST /api/oversight/strategy` - Strategy suggestions
+
+**Full API Documentation**: Available at `/docs` (Swagger UI) or `/redoc` (ReDoc)
 
 ## Configuration
 
-Key settings in `config.py`:
+Key settings in `config.py` (override with `.env`):
+
+### Application
 - `HOST`: Server host (default: 0.0.0.0)
 - `PORT`: Server port (default: 8000)
 - `DEBUG`: Debug mode (default: True)
-- `AGENT_TIMEOUT`: Agent operation timeout in seconds
-- `MAX_CONCURRENT_AGENTS`: Maximum concurrent agent operations
+- `ENVIRONMENT`: Environment (development/production)
 
-## Future Enhancements
+### LLM
+- `OLLAMA_BASE_URL`: Ollama endpoint (default: http://127.0.0.1:11434)
+- `OLLAMA_MODEL`: Model name (default: qwen2.5:14b)
+- `OLLAMA_TEMPERATURE`: Generation temperature (default: 0.7)
+- `OLLAMA_NUM_CTX`: Context window size (default: 8192)
 
-- [ ] Integrate with LLM APIs (OpenAI, Anthropic)
-- [ ] Add database persistence for agent insights
-- [ ] Implement real-time monitoring dashboard
-- [ ] Add authentication and user management
-- [ ] Create scheduled agent tasks
-- [ ] Build agent learning and improvement system
-- [ ] Add comprehensive test coverage
+### Guardrails (Safety & Security)
+- `GUARDRAILS_ENABLED`: Enable content filtering (default: true)
+- `GUARDRAILS_MAX_LENGTH`: Max input length (default: 5000)
+- `GUARDRAILS_CONTENT_FILTER`: Filter harmful content (default: true)
+- `GUARDRAILS_PII_DETECTION`: Detect PII in outputs (default: true)
+- `GUARDRAILS_RATE_LIMITING`: Enable rate limiting (default: true)
+- `GUARDRAILS_RATE_LIMIT_REQUESTS`: Requests per window (default: 100)
+- `GUARDRAILS_RATE_LIMIT_WINDOW`: Time window in seconds (default: 60)
+
+See [`.env.example`](.env.example) for full configuration options.
+
+## Documentation
+
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment instructions
+- **[Guardrails](docs/GUARDRAILS.md)** - Content filtering and safety features
+- **[LangSmith Tracing](LANGSMITH_TRACING.md)** - Observability and monitoring
+- **[Ollama Setup](OLLAMA_SETUP.md)** - Local LLM configuration
+- **[Project Review](PROJECT_REVIEW.md)** - Comprehensive improvement recommendations
+
+## Docker Deployment
+
+### Quick Start
+```powershell
+# Start all services (web + ollama + redis)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f web
+
+# Stop services
+docker-compose down
+```
+
+### Production Deployment
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for complete production setup including:
+- SSL configuration
+- Nginx reverse proxy
+- Health checks and monitoring
+- Security hardening
+- Performance tuning
+
+## CI/CD
+
+Automated CI/CD pipeline runs on push:
+- ✅ Unit tests with coverage
+- ✅ Code quality checks (black, flake8, mypy)
+- ✅ Security scanning (bandit, safety)
+- ✅ Docker image build
+
+See [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+## Features
+
+### ✅ Implemented
+- Multi-agent architecture (6 specialized agents)
+- Q&A interface with web search integration
+- LangSmith tracing for all operations
+- Comprehensive guardrails (content filtering, PII detection, rate limiting)
+- Follow-up question suggestions
+- Async/await design for performance
+- Docker containerization
+- Health check endpoints
+- Structured logging
+
+### 🚧 In Progress
+- Agent method implementations (26+ TODOs)
+- Authentication (JWT)
+- Redis caching layer
+- Background task queue (Celery)
+
+### 📋 Planned
+- Database persistence
+- Real-time monitoring dashboard
+- Advanced analytics
+- A/B testing framework
+- Multi-region deployment
+
+See [PROJECT_REVIEW.md](PROJECT_REVIEW.md) for detailed roadmap.
+
+## Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests (`pytest`)
+4. Run linters (`black . && flake8 .`)
+5. Commit changes (`git commit -m 'Add amazing feature'`)
+6. Push to branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ## License
 
 MIT License
 
-## Contributing
+## Support
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- **Issues**: [GitHub Issues](https://github.com/yourusername/AI_Project/issues)
+- **Documentation**: See `docs/` directory
+- **LangSmith**: https://docs.smith.langchain.com/

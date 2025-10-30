@@ -37,3 +37,55 @@ async def dashboard(request: Request):
         "index.html",
         {"request": request, "title": "Dashboard"}
     )
+
+
+@router.get("/health")
+async def health_check(request: Request):
+    """
+    Health check endpoint for load balancers and orchestrators.
+    Returns overall system health status.
+    """
+    try:
+        # Check Ollama connectivity
+        import httpx
+        from config import settings
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{settings.OLLAMA_BASE_URL}/api/tags", 
+                timeout=5.0
+            )
+            ollama_status = "healthy" if response.status_code == 200 else "degraded"
+    except Exception as e:
+        ollama_status = "unhealthy"
+    
+    overall_status = "healthy" if ollama_status != "unhealthy" else "degraded"
+    
+    return {
+        "status": overall_status,
+        "version": "1.0.0",
+        "services": {
+            "ollama": ollama_status,
+            "api": "healthy"
+        }
+    }
+
+
+@router.get("/ready")
+async def readiness_check(request: Request):
+    """
+    Readiness check endpoint.
+    Returns 200 when application is ready to handle requests.
+    Returns 503 when application is still warming up.
+    """
+    from fastapi.responses import JSONResponse
+    
+    # Check if LLM warmup is complete
+    if not hasattr(request.app.state, 'agents'):
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not ready", "reason": "agents not initialized"}
+        )
+    
+    return {"status": "ready"}
+
